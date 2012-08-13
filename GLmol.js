@@ -1,4 +1,5 @@
 /*
+<<<<<<< HEAD
  GLmol - Molecular Viewer on WebGL/Javascript (0.46)
   (C) Copyright 2011-2012, biochem_fan
       License: dual license of MIT or LGPL3
@@ -7,6 +8,14 @@
     Robert Hanson for parseXYZ, deferred instantiation
 
   This program uses
+=======
+    GLmol - Molecular Viewer on WebGL/Javascript (0.40 + VTF)
+   (C) Copyright 2011-2012, biochem_fan
+
+   License: dual license of MIT or LGPL3
+
+    This program uses
+>>>>>>> origin/master2
       Three.js 
          https://github.com/mrdoob/three.js
          Copyright (c) 2010-2012 three.js Authors. All rights reserved.
@@ -15,10 +24,13 @@
          Copyright (c) 2011 John Resig
  */
 
+<<<<<<< HEAD
 // Workaround for Intel GMA series (gl_FrontFacing causes compilation error)
 THREE.ShaderLib.lambert.fragmentShader = THREE.ShaderLib.lambert.fragmentShader.replace("gl_FrontFacing", "true");
 THREE.ShaderLib.lambert.vertexShader = THREE.ShaderLib.lambert.vertexShader.replace(/\}$/, "#ifdef DOUBLE_SIDED\n if (transformedNormal.z < 0.0) vLightFront = vLightBack;\n #endif\n }");
 
+=======
+>>>>>>> origin/master2
 var TV3 = THREE.Vector3, TF3 = THREE.Face3, TCo = THREE.Color;
 
 THREE.Geometry.prototype.colorAll = function (color) {
@@ -28,6 +40,7 @@ THREE.Geometry.prototype.colorAll = function (color) {
 };
 
 THREE.Matrix4.prototype.isIdentity = function() {
+<<<<<<< HEAD
    for (var i = 1; i <= 4; i++)
       for (var j = 1; j <= 4; j++)
          if (this['n' + i + j] != (i == j) ? 1 : 0) return false;
@@ -41,6 +54,51 @@ function GLmol(id, suppressAutoload) {
 }
 
 GLmol.prototype.create = function(id, suppressAutoload) {
+=======
+   for (var i = 1; i <= 4; i++) {
+      for (var j = 1; j <= 4; j++) {
+         var shouldBe = (i == j) ? 1 : 0;
+         if (this['n' + i + j] != shouldBe) return false;
+      }
+   }
+   return true;
+};
+
+function hookShader() { // Lambert Shader and Line Shader ONLY
+//  For texture-coordinates, see 
+//      http://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
+//  This is the heart of this trick.
+//    FaceColors, VertexColors: USE_COLOR is defined, color is passed as "color" attribute
+//    Other cases: color is passed as "diffuse" uniform
+
+//  USE_MAP has to be disabled; otherwise, mesh without uv will not be displayed.
+//  Inject Color picker into vertex shader
+   THREE.ShaderLib.lambert.vertexShader =  THREE.ShaderLib.lambert.vertexShader.replace("void main", "#undef USE_MAP\n uniform sampler2D map; \n \n\nvec3 pickColor(vec3 color){\n int serial = int(color.b * 255.0 + color.g * 65280.0 + color.r * 16711680.0 + 0.01); float x = ((mod(float(serial), 512.0))* 2.0 + 1.0) / 1024.0, y = (float(serial / 512) * 2.0 + 1.0) / 1024.0;\n \n return texture2D(map, vec2(x, y)).rgb;\n} \n\n\nvoid main");
+//  Hook Material color ("diffuse" uniform)
+   THREE.ShaderLib.lambert.vertexShader =  THREE.ShaderLib.lambert.vertexShader.replace(/\* diffuse/g, "* diffuse2");
+   THREE.ShaderLib.lambert.vertexShader =  THREE.ShaderLib.lambert.vertexShader.replace("vLightFront = vLightFront *", "///////////////////////////////////////\n\n#ifndef USE_COLOR\nvec3 diffuse2 = pickColor(diffuse).rgb;\n#else\nvec3 diffuse2 = diffuse;\n#endif\nvLightFront = vLightFront *");
+//  Hook vertex color & face color ("color" attribute)
+    THREE.ShaderLib.lambert.vertexShader = THREE.ShaderLib.lambert.vertexShader.replace("vColor = color;", "vColor = pickColor(color);");
+   THREE.ShaderLib.lambert.vertexShader = THREE.ShaderLib.lambert.vertexShader.replace("vColor = color * color;", "vColor = pickColor(color) * pickColor(color);");
+//  Disable normal texture mapping 
+   THREE.ShaderLib.lambert.fragmentShader = THREE.ShaderLib.lambert.fragmentShader.replace("void main", "#undef USE_MAP\n void main");
+   THREE.ShaderLib.lambert.fragmentShader = THREE.ShaderLib.lambert.fragmentShader.replace("gl_FragColor = gl_FragColor * texture2D( map, vUv );", "");
+   THREE.ShaderLib.lambert.fragmentShader = THREE.ShaderLib.lambert.fragmentShader.replace("gl_FragColor = gl_FragColor * texelColor;", "a1");
+    
+//  Same for 'basic' shader
+//   For this to work, WebGLRenderer.js has to be patched beforehand.
+   THREE.ShaderLib.basic.vertexShader =  THREE.ShaderLib.basic.vertexShader.replace("void main", "uniform sampler2D map; \n \n\nvec3 pickColor(vec3 color){\n int serial = int(color.b * 255.0 + color.g * 65280.0 + color.r * 16711680.0 + 0.01); float x = ((mod(float(serial), 512.0))* 2.0 + 1.0) / 1024.0, y = (float(serial / 512) * 2.0 + 1.0) / 1024.0;\n \n return texture2D(map, vec2(x, y)).rgb;\n} \n\n\nvoid main");
+   THREE.ShaderLib.basic.vertexShader =  THREE.ShaderLib.basic.vertexShader.replace(/\* diffuse/g, "* diffuse2");
+   THREE.ShaderLib.basic.vertexShader =  THREE.ShaderLib.basic.vertexShader.replace("vLightFront = vLightFront *", "///////////////////////////////////////\n\n#ifndef USE_COLOR\nvec3 diffuse2 = pickColor(diffuse).rgb;\n#else\nvec3 diffuse2 = diffuse;\n#endif\nvLightFront = vLightFront *");
+   THREE.ShaderLib.basic.vertexShader = THREE.ShaderLib.basic.vertexShader.replace("vColor = color;", "vColor = pickColor(color);");
+   THREE.ShaderLib.basic.fragmentShader = THREE.ShaderLib.basic.fragmentShader.replace("gl_FragColor = gl_FragColor * texture2D( map, vUv );", "");
+}
+
+hookShader();
+
+var GLmol = (function() {
+function GLmol(id, suppressAutoload) {
+>>>>>>> origin/master2
    this.Nucleotides = ['  G', '  A', '  T', '  C', '  U', ' DG', ' DA', ' DT', ' DC', ' DU'];
    this.ElementColors = {"H": 0xCCCCCC, "C": 0xAAAAAA, "O": 0xCC0000, "N": 0x0000CC, "S": 0xCCCC00, "P": 0x6622CC,
                          "F": 0x00CC00, "CL": 0x00CC00, "BR": 0x882200, "I": 0x6600AA,
@@ -59,7 +117,10 @@ GLmol.prototype.create = function(id, suppressAutoload) {
    this.NEAR = 1, FAR = 800;
    this.CAMERA_Z = -150;
    this.renderer = new THREE.WebGLRenderer({antialias: true});
+<<<<<<< HEAD
    this.renderer.sortObjects = false; // hopefully improve performance
+=======
+>>>>>>> origin/master2
    // 'antialias: true' now works in Firefox too!
    // setting this.aaScale = 2 will enable antialias in older Firefox but GPU load increases.
    this.renderer.domElement.style.width = "100%";
@@ -122,11 +183,37 @@ GLmol.prototype.create = function(id, suppressAutoload) {
    this.currentModelPos = 0;
    this.cz = 0;
    this.enableMouse();
+<<<<<<< HEAD
+=======
+   this.colortable = new Uint8Array(512 * 512 * 3);
+   this.colormap = new THREE.DataTexture(this.colortable, 512, 512, THREE.RGBFormat);
+//   this.colormap.generateMipmaps = false;
+   this.colormap.onUpdate = function() {console.log('texture updated');};
+   this.colormap.magFilter = this.colormap.minFilter = THREE.NearestFilter;
+   this.colormap.generateMipmaps = false;
+   for (var i = 0; i < 512 * 512; i++) {
+      this.setColor(i, 0x0000ff);
+   }
+>>>>>>> origin/master2
 
    if (suppressAutoload) return;
    this.loadMolecule();
 }
 
+<<<<<<< HEAD
+=======
+GLmol.prototype.setColor = function(serial, color) {
+   var b = color % 256;
+   var g = Math.floor((color % 65536) / 256);
+   var r = Math.floor(color / 65536);
+   this.colortable[serial * 3] = r;
+   this.colortable[serial * 3 + 1] = g;
+   this.colortable[serial * 3 + 2] = b;
+   this.colormap.needsUpdate = true;
+}
+
+
+>>>>>>> origin/master2
 GLmol.prototype.setupLights = function(scene) {
    var directionalLight =  new THREE.DirectionalLight(0xFFFFFF);
    directionalLight.position = new TV3(0.2, 0.2, -1).normalize();
@@ -176,6 +263,7 @@ GLmol.prototype.parseSDF = function(str) {
    protein.sdf = true;
 };
 
+<<<<<<< HEAD
 GLmol.prototype.parseXYZ = function(str) {
    var atoms = this.atoms;
    var protein = this.protein;
@@ -212,6 +300,8 @@ GLmol.prototype.parseXYZ = function(str) {
    protein.sdf = true;
 };
 
+=======
+>>>>>>> origin/master2
 GLmol.prototype.parsePDB2 = function(str) {
    var atoms = this.atoms;
    var protein = this.protein;
@@ -243,7 +333,11 @@ GLmol.prototype.parsePDB2 = function(str) {
          else hetflag = false;
          atoms[serial] = {'resn': resn, 'x': x, 'y': y, 'z': z, 'elem': elem,
   'hetflag': hetflag, 'chain': chain, 'resi': resi, 'serial': serial, 'atom': atom,
+<<<<<<< HEAD
   'bonds': [], 'ss': 'c', 'color': 0xFFFFFF, 'bonds': [], 'bondOrder': [], 'b': b /*', altLoc': altLoc*/};
+=======
+  'bonds': [], 'ss': 'c', 'color': serial, 'bonds': [], 'bondOrder': [], 'b': b /*', altLoc': altLoc*/};
+>>>>>>> origin/master2
       } else if (recordName == 'SHEET ') {
          var startChain = line.substr(21, 1);
          var startResi = parseInt(line.substr(22, 4));
@@ -278,6 +372,7 @@ GLmol.prototype.parsePDB2 = function(str) {
          protein.spacegroup = line.substr(55, 11);
          this.defineCell();
       } else if (recordName == 'REMARK') {
+<<<<<<< HEAD
          var type = parseInt(line.substr(7, 3));
          if (type == 290 && line.substr(13, 5) == 'SMTRY') {
             var n = parseInt(line[18]) - 1;
@@ -288,6 +383,9 @@ GLmol.prototype.parsePDB2 = function(str) {
             protein.symMat[m].elements[n + 8] = parseFloat(line.substr(44, 9));
             protein.symMat[m].elements[n + 12] = parseFloat(line.substr(54, 10));
          } else if (type == 350 && line.substr(13, 5) == 'BIOMT') {
+=======
+         if (line.substr(13, 5) == 'BIOMT') {
+>>>>>>> origin/master2
             var n = parseInt(line[18]) - 1;
             var m = parseInt(line.substr(21, 2));
             if (protein.biomtMatrices[m] == undefined) protein.biomtMatrices[m] = new THREE.Matrix4().identity();
@@ -295,10 +393,22 @@ GLmol.prototype.parsePDB2 = function(str) {
             protein.biomtMatrices[m].elements[n + 4] = parseFloat(line.substr(34, 9));
             protein.biomtMatrices[m].elements[n + 8] = parseFloat(line.substr(44, 9));
             protein.biomtMatrices[m].elements[n + 12] = parseFloat(line.substr(54, 10));
+<<<<<<< HEAD
          } else if (type == 350 && line.substr(11, 11) == 'BIOMOLECULE') {
              protein.biomtMatrices = []; protein.biomtChains = '';
          } else if (type == 350 && line.substr(34, 6) == 'CHAINS') {
              protein.biomtChains += line.substr(41, 40);
+=======
+
+         } else if (line.substr(13, 5) == 'SMTRY') {
+            var n = parseInt(line[18]) - 1;
+            var m = parseInt(line.substr(21, 2));
+            if (protein.symMat[m] == undefined) protein.symMat[m] = new THREE.Matrix4().identity();
+            protein.symMat[m].elements[n] = parseFloat(line.substr(24, 9));
+            protein.symMat[m].elements[n + 4] = parseFloat(line.substr(34, 9));
+            protein.symMat[m].elements[n + 8] = parseFloat(line.substr(44, 9));
+            protein.symMat[m].elements[n + 12] = parseFloat(line.substr(54, 10));
+>>>>>>> origin/master2
          }
       } else if (recordName == 'HEADER') {
          protein.pdbID = line.substr(62, 4);
@@ -372,17 +482,30 @@ GLmol.prototype.subdivide = function(_points, DIV) { // points as Vector3
    return ret;
 };
 
+<<<<<<< HEAD
 GLmol.prototype.drawAtomsAsSphere = function(group, atomlist, defaultRadius, forceDefault, scale) {
    var sphereGeometry = new THREE.SphereGeometry(1, this.sphereQuality, this.sphereQuality); // r, seg, ring
+=======
+GLmol.prototype.drawAtomsAsSphere = function(group, atomlist, defaultRadius, forceDefault) {
+   var sphereGeometry = new THREE.SphereGeometry(1, this.sphereQuality, this.sphereQuality); // r, seg, ring
+   sphereGeometry.faceVertexUvs = [];
+>>>>>>> origin/master2
    for (var i = 0; i < atomlist.length; i++) {
       var atom = this.atoms[atomlist[i]];
       if (atom == undefined) continue;
 
+<<<<<<< HEAD
       var sphereMaterial = new THREE.MeshLambertMaterial({color: atom.color});
       var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
       group.add(sphere);
       var r = (!forceDefault && this.vdwRadii[atom.elem] != undefined) ? this.vdwRadii[atom.elem] : defaultRadius;
       if (!forceDefault && scale) r *= scale;
+=======
+       var sphereMaterial = new THREE.MeshLambertMaterial({color: atom.color, map:this.colormap});
+      var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      group.add(sphere);
+      var r = (!forceDefault && this.vdwRadii[atom.elem] != undefined) ? this.vdwRadii[atom.elem] : defaultRadius
+>>>>>>> origin/master2
       sphere.scale.x = sphere.scale.y = sphere.scale.z = r;
       sphere.position.x = atom.x;
       sphere.position.y = atom.y;
@@ -397,7 +520,11 @@ GLmol.prototype.drawAtomsAsIcosahedron = function(group, atomlist, defaultRadius
       var atom = this.atoms[atomlist[i]];
       if (atom == undefined) continue;
 
+<<<<<<< HEAD
       var mat = new THREE.MeshLambertMaterial({color: atom.color});
+=======
+      var mat = new THREE.MeshLambertMaterial({color: atom.color, map:this.colormap});
+>>>>>>> origin/master2
       var sphere = new THREE.Mesh(geo, mat);
       sphere.scale.x = sphere.scale.y = sphere.scale.z = (!forceDefault && this.vdwRadii[atom.elem] != undefined) ? this.vdwRadii[atom.elem] : defaultRadius;
       group.add(sphere);
@@ -419,7 +546,11 @@ GLmol.prototype.isConnected = function(atom1, atom2) {
 
 //   if (atom1.altLoc != atom2.altLoc) return false;
    if (isNaN(distSquared)) return 0;
+<<<<<<< HEAD
    if (distSquared < 0.5) return 0; // maybe duplicate position.
+=======
+   if (distSquared < 0.5) return 0; // maybe duplicate position. FIXME: Is this treatment correct?
+>>>>>>> origin/master2
 
    if (distSquared > 1.3 && (atom1.elem == 'H' || atom2.elem == 'H' || atom1.elem == 'D' || atom2.elem == 'D')) return 0;
    if (distSquared < 3.42 && (atom1.elem == 'S' || atom2.elem == 'S')) return 1;
@@ -427,6 +558,7 @@ GLmol.prototype.isConnected = function(atom1, atom2) {
    return 1;
 };
 
+<<<<<<< HEAD
 GLmol.prototype.drawBondAsStickSub = function(group, atom1, atom2, bondR, order) {
    var delta, tmp;
    if (order > 1) delta = this.calcBondDelta(atom1, atom2, bondR * 2.3);
@@ -454,6 +586,12 @@ GLmol.prototype.drawBondsAsStick = function(group, atomlist, bondR, atomR, ignor
    var nAtoms = atomlist.length, mp;
    var forSpheres = [];
    if (!!multipleBonds) bondR /= 2.5;
+=======
+GLmol.prototype.drawBondsAsStick = function(group, atomlist, bondR, atomR, ignoreNonbonded) {
+   var sphereGeometry = new THREE.SphereGeometry(1, this.sphereQuality, this.sphereQuality);//IcosahedronGeometry();
+   var nAtoms = atomlist.length, mp;
+
+>>>>>>> origin/master2
    for (var _i = 0; _i < nAtoms; _i++) {
       var i = atomlist[_i];
       var atom1 = this.atoms[i];
@@ -465,6 +603,7 @@ GLmol.prototype.drawBondsAsStick = function(group, atomlist, bondR, atomR, ignor
          var order = this.isConnected(atom1, atom2);
          if (order == 0) continue;
          atom1.connected = atom2.connected = true;
+<<<<<<< HEAD
          this.drawBondAsStickSub(group, atom1, atom2, bondR, (!!multipleBonds) ? order : 1);
       }
       for (var _j = 0; _j < atom1.bonds.length; _j++) {
@@ -479,6 +618,32 @@ GLmol.prototype.drawBondsAsStick = function(group, atomlist, bondR, atomR, ignor
       if (atom1.connected) forSpheres.push(i);
    }
    this.drawAtomsAsSphere(group, forSpheres, atomR, !scale, scale);
+=======
+         this.drawCylinder(group, new TV3(atom1.x, atom1.y, atom1.z),
+                           mp = new TV3((atom1.x + atom2.x) / 2, (atom1.y + atom2.y) / 2, (atom1.z + atom2.z) / 2), bondR, atom1.color);
+         this.drawCylinder(group, new TV3(atom2.x, atom2.y, atom2.z), mp, bondR, atom2.color);
+      }
+      for (var _j = 0; _j < atom1.bonds.length; _j++) {
+          var j = atom1.bonds[_j];
+          if (j < i + 30) continue; // be conservative!
+          if (atomlist.indexOf(j) == -1) continue;
+          var atom2 = this.atoms[j];
+          if (atom2 == undefined) continue;
+          atom1.connected = atom2.connected = true;
+          this.drawCylinder(group, new TV3(atom1.x, atom1.y, atom1.z),
+                           mp = new TV3((atom1.x + atom2.x) / 2, (atom1.y + atom2.y) / 2, (atom1.z + atom2.z) / 2), bondR, atom1.color);
+          this.drawCylinder(group, new TV3(atom2.x, atom2.y, atom2.z), mp, bondR, atom2.color);
+      }
+      if (!atom1.connected) continue;
+       var sphereMaterial = new THREE.MeshLambertMaterial({color: atom1.color, map:this.colormap});
+       var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+       sphere.scale.x = sphere.scale.y = sphere.scale.z = atomR;
+       group.add(sphere);
+       sphere.position.x = atom1.x;
+       sphere.position.y = atom1.y;
+       sphere.position.z = atom1.z;
+    }
+>>>>>>> origin/master2
 };
 
 GLmol.prototype.defineCell = function() {
@@ -512,12 +677,17 @@ GLmol.prototype.drawUnitcell = function(group) {
     for (var i = 0; i < edges.length; i++) {
        geo.vertices.push(new TV3(vertices[edges[i]][0], vertices[edges[i]][1], vertices[edges[i]][2]));
     }
+<<<<<<< HEAD
    var lineMaterial = new THREE.LineBasicMaterial({linewidth: 1, color: 0xcccccc});
+=======
+   var lineMaterial = new THREE.LineBasicMaterial({linewidth: 1, color: 0xcccccc}); // TODO: fix color
+>>>>>>> origin/master2
    var line = new THREE.Line(geo, lineMaterial);
    line.type = THREE.LinePieces;
    group.add(line);
 };
 
+<<<<<<< HEAD
 // TODO: Find inner side of a ring
 GLmol.prototype.calcBondDelta = function(atom1, atom2, sep) {
    var dot;
@@ -568,6 +738,78 @@ GLmol.prototype.drawBondsAsLineSub = function(geo, atom1, atom2, order) {
       vs.push(tmp = mp.clone().subSelf(delta)); cs.push(c1);
       vs.push(p2.clone().subSelf(delta)); cs.push(c2);
       vs.push(tmp); cs.push(c2);
+=======
+GLmol.BoxGeometry = function(group, x, y, z) { // TODO:
+
+};
+
+
+// TODO: Refactor!
+GLmol.prototype.drawBondsAsLineSub = function(geo, atom1, atom2, order) {
+   var mp = new TV3((atom1.x + atom2.x) / 2,
+                   (atom1.y + atom2.y) / 2, (atom1.z + atom2.z) / 2);
+   var delta, dot;
+   if (order > 1) { // Find the bond plane. TODO: Find inner side of a ring
+      var axis = new TV3(atom1.x - atom2.x, atom1.y - atom2.y, atom1.z - atom2.z);
+      var found = null;
+      for (var i = 0; i < atom1.bonds.length && !found; i++) {
+         var atom = this.atoms[atom1.bonds[i]]; if (!atom) continue;
+         if (atom.serial != atom2.serial && atom.elem != 'H') found = atom;
+      }
+      for (var i = 0; i < atom2.bonds.length && !found; i++) {
+         var atom = this.atoms[atom2.bonds[i]]; if (!atom) continue;
+         if (atom.serial != atom1.serial && atom.elem != 'H') found = atom;
+      }
+      if (found) {
+         var tmp = new TV3(atom1.x - found.x, atom1.y - found.y, atom1.z - found.z);
+         dot = tmp.dot(axis);
+         delta = new TV3(tmp.x - axis.x * dot, tmp.y - axis.y * dot, tmp.z - axis.z * dot);
+      }
+      if (!found || Math.abs(dot - 1) < 0.001) {
+         if (axis.x < 0.01 && axis.y < 0.01) {
+            delta = new TV3(0, - axis.z, axis.y);
+         } else {
+            delta = new TV3(- axis.y, axis.x, 0);
+         }
+      }
+      delta.normalize().multiplyScalar(0.15);
+   }
+
+   var color = new TCo(atom1.color);
+   geo.vertices.push(new TV3(atom1.x, atom1.y, atom1.z));
+   geo.colors.push(color);
+   geo.vertices.push(mp);
+   geo.colors.push(color);
+   if (order > 1) {
+      geo.vertices.push(new TV3(atom1.x + delta.x, atom1.y + delta.y, atom1.z + delta.z));
+      geo.colors.push(color);
+      geo.vertices.push(new TV3(mp.x + delta.x, mp.y + delta.y, mp.z + delta.z));
+      geo.colors.push(color);
+   }
+   if (order > 2) {
+      geo.vertices.push(new TV3(atom1.x + delta.x * 2, atom1.y + delta.y * 2, atom1.z + delta.z * 2));
+      geo.colors.push(color);
+      geo.vertices.push(new TV3(mp.x + delta.x * 2, mp.y + delta.y * 2, mp.z + delta.z * 2));
+      geo.colors.push(color);
+   }
+       
+   color = new TCo(atom2.color);
+   geo.vertices.push(new TV3(atom2.x, atom2.y, atom2.z));
+   geo.colors.push(color);
+   geo.vertices.push(mp);
+   geo.colors.push(color);
+   if (order > 1) {
+      geo.vertices.push(new TV3(atom2.x + delta.x, atom2.y + delta.y, atom2.z + delta.z));
+      geo.colors.push(color);
+      geo.vertices.push(new TV3(mp.x + delta.x, mp.y + delta.y, mp.z + delta.z));
+      geo.colors.push(color);
+   }
+   if (order > 2) {
+      geo.vertices.push(new TV3(atom2.x + delta.x * 2, atom2.y + delta.y * 2, atom2.z + delta.z * 3));
+      geo.colors.push(color);
+      geo.vertices.push(new TV3(mp.x + delta.x * 2, mp.y + delta.y * 2, mp.z + delta.z * 2));
+      geo.colors.push(color);
+>>>>>>> origin/master2
    }
 };
 
@@ -599,7 +841,12 @@ GLmol.prototype.drawBondsAsLine = function(group, atomlist, lineWidth) {
     }
    var lineMaterial = new THREE.LineBasicMaterial({linewidth: lineWidth});
    lineMaterial.vertexColors = true;
+<<<<<<< HEAD
 
+=======
+   lineMaterial.map = this.colormap;
+   console.log(lineMaterial);
+>>>>>>> origin/master2
    var line = new THREE.Line(geo, lineMaterial);
    line.type = THREE.LinePieces;
    group.add(line);
@@ -617,7 +864,11 @@ GLmol.prototype.drawSmoothCurve = function(group, _points, width, colors, div) {
       geo.vertices.push(points[i]);
       geo.colors.push(new TCo(colors[(i == 0) ? 0 : Math.round((i - 1) / div)]));
   }
+<<<<<<< HEAD
   var lineMaterial = new THREE.LineBasicMaterial({linewidth: width});
+=======
+  var lineMaterial = new THREE.LineBasicMaterial({linewidth: width, map: this.colormap});
+>>>>>>> origin/master2
   lineMaterial.vertexColors = true;
   var line = new THREE.Line(geo, lineMaterial);
   line.type = THREE.LineStrip;
@@ -706,7 +957,11 @@ GLmol.prototype.drawSmoothTube = function(group, _points, colors, radii) {
    }
    geo.computeFaceNormals();
    geo.computeVertexNormals(false);
+<<<<<<< HEAD
    var mat = new THREE.MeshLambertMaterial();
+=======
+   var mat = new THREE.MeshLambertMaterial({map:this.colormap});// mat.wireframe = true;
+>>>>>>> origin/master2
    mat.vertexColors = THREE.FaceColors;
    var mesh = new THREE.Mesh(geo, mat);
    mesh.doubleSided = true;
@@ -752,7 +1007,11 @@ GLmol.prototype.drawMainchainTube = function(group, atomlist, atomName, radius) 
          }
          points.push(new TV3(atom.x, atom.y, atom.z));
          if (radius == undefined) {
+<<<<<<< HEAD
             radii.push((atom.b > 0) ? atom.b / 100 : 0.3);
+=======
+            radii.push((atom.b > 0) ? atom.b / 100 : 0.3); // CHECK: is linear scaling correct?
+>>>>>>> origin/master2
          } else {
             radii.push(radius);
          }
@@ -769,7 +1028,11 @@ GLmol.prototype.drawStrip = function(group, p1, p2, colors, div, thickness) {
    div = div || this.axisDIV;
    p1 = this.subdivide(p1, div);
    p2 = this.subdivide(p2, div);
+<<<<<<< HEAD
    if (!thickness) return this.drawThinStrip(group, p1, p2, colors, div);
+=======
+   if (!thickness) {this.drawThinStrip(group, p1, p2, colors, div); return;}
+>>>>>>> origin/master2
 
    var geo = new THREE.Geometry();
    var vs = geo.vertices, fs = geo.faces;
@@ -804,7 +1067,11 @@ GLmol.prototype.drawStrip = function(group, p1, p2, colors, div, thickness) {
    fs.push(new THREE.Face4(vsize + 1, vsize + 5, vsize + 7, vsize + 3, undefined, fs[fs.length - 3].color));
    geo.computeFaceNormals();
    geo.computeVertexNormals(false);
+<<<<<<< HEAD
    var material =  new THREE.MeshLambertMaterial();
+=======
+    var material =  new THREE.MeshLambertMaterial({map: this.colormap});
+>>>>>>> origin/master2
    material.vertexColors = THREE.FaceColors;
    var mesh = new THREE.Mesh(geo, material);
    mesh.doubleSided = true;
@@ -825,7 +1092,11 @@ GLmol.prototype.drawThinStrip = function(group, p1, p2, colors, div) {
    }
    geo.computeFaceNormals();
    geo.computeVertexNormals(false);
+<<<<<<< HEAD
    var material =  new THREE.MeshLambertMaterial();
+=======
+    var material =  new THREE.MeshLambertMaterial({map:this.colormap});
+>>>>>>> origin/master2
    material.vertexColors = THREE.FaceColors;
    var mesh = new THREE.Mesh(geo, material);
    mesh.doubleSided = true;
@@ -849,7 +1120,11 @@ GLmol.prototype.drawCylinder = function(group, from, to, radius, color, cap) {
       this.cylinderGeometry.faceUvs = [];
       this.faceVertexUvs = [];
    }
+<<<<<<< HEAD
    var cylinderMaterial = new THREE.MeshLambertMaterial({color: color.getHex()});
+=======
+   var cylinderMaterial = new THREE.MeshLambertMaterial({color: color.getHex(), map:this.colormap});
+>>>>>>> origin/master2
    var cylinder = new THREE.Mesh(this.cylinderGeometry, cylinderMaterial);
    cylinder.position = midpoint;
    cylinder.lookAt(from);
@@ -858,6 +1133,10 @@ GLmol.prototype.drawCylinder = function(group, from, to, radius, color, cap) {
    var m = new THREE.Matrix4().makeScale(radius, radius, from.distanceTo(to));
    m.rotateX(Math.PI / 2);
    cylinder.matrix.multiplySelf(m);
+<<<<<<< HEAD
+=======
+   cylinder.doubleSided = true;
+>>>>>>> origin/master2
    group.add(cylinder);
 };
 
@@ -994,7 +1273,11 @@ GLmol.prototype.drawNucleicAcidLadder = function(group, atomlist) {
    }
    this.drawNucleicAcidLadderSub(geo, lineGeo, currentComponent, color);
    geo.computeFaceNormals();
+<<<<<<< HEAD
    var mat = new THREE.MeshLambertMaterial();
+=======
+   var mat = new THREE.MeshLambertMaterial({map:this.colormap});
+>>>>>>> origin/master2
    mat.vertexColors = THREE.VertexColors;
    var mesh = new THREE.Mesh(geo, mat);
    mesh.doubleSided = true;
@@ -1214,7 +1497,11 @@ GLmol.prototype.getSidechains = function(atomlist) {
       var atom = this.atoms[atomlist[i]]; if (atom == undefined) continue;
 
       if (atom.hetflag) continue;
+<<<<<<< HEAD
       if (atom.atom == 'C' || atom.atom == 'O' || (atom.atom == 'N' && atom.resn != "PRO")) continue;
+=======
+      if (atom.atom == 'C' || atom.atom == 'O' || atom.atom == 'N') continue;
+>>>>>>> origin/master2
       ret.push(atom.serial);
    }
    return ret;
@@ -1272,6 +1559,7 @@ GLmol.prototype.getResidueBySS = function(atomlist, ss) {
 };
 
 GLmol.prototype.getChain = function(atomlist, chain) {
+<<<<<<< HEAD
    var ret = [], chains = {};
    chain = chain.toString(); // concat if Array
    for (var i = 0, lim = chain.length; i < lim; i++) chains[chain.substr(i, 1)] = true;
@@ -1279,6 +1567,13 @@ GLmol.prototype.getChain = function(atomlist, chain) {
       var atom = this.atoms[atomlist[i]]; if (atom == undefined) continue;
 
       if (chains[atom.chain]) ret.push(atom.serial);
+=======
+   var ret = [];
+   for (var i in atomlist) {
+      var atom = this.atoms[atomlist[i]]; if (atom == undefined) continue;
+
+      if (chain.indexOf(atom.chain) != -1) ret.push(atom.serial);
+>>>>>>> origin/master2
    }
    return ret;
 };
@@ -1301,7 +1596,11 @@ GLmol.prototype.colorByAtom = function(atomlist, colors) {
       var c = colors[atom.elem];
       if (c == undefined) c = this.ElementColors[atom.elem];
       if (c == undefined) c = this.defaultColor;
+<<<<<<< HEAD
       atom.color = c;
+=======
+      this.setColor(atom.serial, c);
+>>>>>>> origin/master2
    }
 };
 
@@ -1312,8 +1611,13 @@ GLmol.prototype.colorByStructure = function(atomlist, helixColor, sheetColor, co
       var atom = this.atoms[atomlist[i]]; if (atom == undefined) continue;
 
       if (!colorSidechains && (atom.atom != 'CA' || atom.hetflag)) continue;
+<<<<<<< HEAD
       if (atom.ss[0] == 's') atom.color = sheetColor;
       else if (atom.ss[0] == 'h') atom.color = helixColor;
+=======
+      if (atom.ss[0] == 's') this.setColor(atom.serial, sheetColor);
+      else if (atom.ss[0] == 'h') this.setColor(atom.serial, helixColor);
+>>>>>>> origin/master2
    }
 };
 
@@ -1344,7 +1648,11 @@ GLmol.prototype.colorByBFactor = function(atomlist, colorSidechains) {
             color.setHSV(0.667, (mid - atom.b) / range, 1);
          else
             color.setHSV(0, (atom.b - mid) / range, 1);
+<<<<<<< HEAD
          atom.color = color.getHex();
+=======
+         this.setColor(atom.serial, color.getHex());
+>>>>>>> origin/master2
       }
    }
 };
@@ -1357,7 +1665,11 @@ GLmol.prototype.colorByChain = function(atomlist, colorSidechains) {
       if (colorSidechains || atom.atom == 'CA' || atom.atom == 'O3\'') {
          var color = new TCo(0);
          color.setHSV((atom.chain.charCodeAt(0)) % 15 / 15.0, 1, 0.9);
+<<<<<<< HEAD
          atom.color = color.getHex();
+=======
+         this.setColor(atom.serial, color.getHex());
+>>>>>>> origin/master2
       }
    }
 };
@@ -1367,7 +1679,11 @@ GLmol.prototype.colorByResidue = function(atomlist, residueColors) {
       var atom = this.atoms[atomlist[i]]; if (atom == undefined) continue;
 
       c = residueColors[atom.resn]
+<<<<<<< HEAD
       if (c != undefined) atom.color = c;
+=======
+      if (c != undefined) this.setColor(atom.serial, c);
+>>>>>>> origin/master2
    }
 };
 
@@ -1375,7 +1691,11 @@ GLmol.prototype.colorAtoms = function(atomlist, c) {
    for (var i in atomlist) {
       var atom = this.atoms[atomlist[i]]; if (atom == undefined) continue;
 
+<<<<<<< HEAD
       atom.color = c;
+=======
+      this.setColor(atom.serial, c);
+>>>>>>> origin/master2
    }
 };
 
@@ -1385,7 +1705,11 @@ GLmol.prototype.colorByPolarity = function(atomlist, polar, nonpolar) {
    var colorMap = {};
    for (var i in polarResidues) colorMap[polarResidues[i]] = polar;
    for (i in nonPolarResidues) colorMap[nonPolarResidues[i]] = nonpolar;
+<<<<<<< HEAD
    this.colorByResidue(atomlist, colorMap);   
+=======
+   this.colorByResidue(atomlist, colorMap); 
+>>>>>>> origin/master2
 };
 
 // TODO: Add near(atomlist, neighbor, distanceCutoff)
@@ -1409,7 +1733,11 @@ GLmol.prototype.colorChainbow = function(atomlist, colorSidechains) {
       if ((colorSidechains || atom.atom != 'CA' || atom.atom != 'O3\'') && !atom.hetflag) {
          var color = new TCo(0);
          color.setHSV(240.0 / 360 * (1 - cnt / total), 1, 0.9);
+<<<<<<< HEAD
          atom.color = color.getHex();
+=======
+         this.setColor(atom.serial, color.getHex());
+>>>>>>> origin/master2
          cnt++;
       }
    }
@@ -1418,19 +1746,33 @@ GLmol.prototype.colorChainbow = function(atomlist, colorSidechains) {
 GLmol.prototype.drawSymmetryMates2 = function(group, asu, matrices) {
    if (matrices == undefined) return;
    asu.matrixAutoUpdate = false;
+<<<<<<< HEAD
 //   var t = new TV3(262.1, 114.9, 189.8); //this.modelGroup.position.clone().invert();
 //   var c = t.clone();
 //   var cnt = 1;
+=======
+   var t = new TV3(262.1, 114.9, 189.8); //this.modelGroup.position.clone().invert();
+   var c = t.clone();
+   var cnt = 1;
+>>>>>>> origin/master2
    for (var i = 0; i < matrices.length; i++) {
       var mat = matrices[i];
       if (mat == undefined || mat.isIdentity()) continue;
       var symmetryMate = THREE.SceneUtils.cloneObject(asu);
       symmetryMate.matrix = mat;
       group.add(symmetryMate);
+<<<<<<< HEAD
 //      c.addSelf(mat.multiplyVector3(t));
 //      cnt++;
    }
 //   console.log(c.multiplyScalar(-1.0 / cnt));
+=======
+      c.addSelf(mat.multiplyVector3(t));
+      console.log(symmetryMate.matrixAutoUpdate);
+      cnt++;
+   }
+   console.log(c.multiplyScalar(-1.0 / cnt));
+>>>>>>> origin/master2
 };
 
 
@@ -1544,6 +1886,7 @@ GLmol.prototype.rebuildScene = function() {
 };
 
 GLmol.prototype.loadMolecule = function(repressZoom) {
+<<<<<<< HEAD
    this.loadMoleculeStr(repressZoom, $('#' + this.id + '_src').val());
 };
 
@@ -1556,6 +1899,16 @@ GLmol.prototype.loadMoleculeStr = function(repressZoom, source) {
    this.parsePDB2(source);
    this.parseSDF(source);
    this.parseXYZ(source);
+=======
+   var time = new Date();
+
+   this.protein = {sheet: [], helix: [], biomtMatrices: [], symMat: [], pdbID: '', title: ''};
+   this.atoms = [];
+
+   var source = $('#' + this.id + '_src').val();
+   this.parsePDB2(source);
+   this.parseSDF(source);
+>>>>>>> origin/master2
    console.log("parsed in " + (+new Date() - time) + "ms");
    
    var title = $('#' + this.id + '_pdbTitle');
@@ -1594,7 +1947,11 @@ GLmol.prototype.setSlabAndFog = function() {
 GLmol.prototype.enableMouse = function() {
    var me = this, glDOM = $(this.renderer.domElement); 
 
+<<<<<<< HEAD
    // TODO: Better touch panel support. 
+=======
+   // TODO: Touch panel support. 
+>>>>>>> origin/master2
    // Contribution is needed as I don't own any iOS or Android device with WebGL support.
    glDOM.bind('mousedown touchstart', function(ev) {
       ev.preventDefault();
